@@ -1,8 +1,8 @@
+# Copyright (c) 2024 CSCS, ETH Zurich
+# SPDX-License-Identifier: BSD 3-Clause License
 """
 Script to be run on Sole Metal to get mappings of key-value paris from a kafka
 topic and write it to memcached.
-
-
 """
 import json
 import os
