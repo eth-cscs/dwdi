@@ -1,0 +1,13 @@
+FIELD_MAP=[{"key": "node_id", "value": "node_nid"},{"key": "node_nid", "value":"node_id"},{"key": "node_id", "value": "label"},{"key": "node_nid", "value":"label"}]
+RENAME_MAP={"node_id":"node_xname", "label": "cluster", "node_nid": "nid"}
+
+# KakfaConsumer constants
+TOPIC=<topic>
+GROUP_ID=<group_id>
+BOOTSTRAP_SERVER=<bootstrap_server>
+AUTO_OFFSET_RESET=latest
+
+# Memcached client constants
+MEMCACHED_HOST=<memcached_host>
+MEMCACHED_PORT=<memcached_port>
+LOG_LEVEL=INFO
