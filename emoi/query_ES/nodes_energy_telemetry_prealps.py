@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 base_url = 'https://sole.cscs.ch:9200'
 index_name = 'metrics-facility.telemetry-prealps*'  # SANTIS
 search_url = f"{base_url}/{index_name}/_search"
-user = 'cscs_user'
+user = os.environ["YYY"]
 passw = os.environ["XXX"]
 
 
