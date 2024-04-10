@@ -1,0 +1,135 @@
+{
+  "track_total_hits": false,
+  "sort": [
+    {
+      "@timestamp": {
+        "order": "asc",
+        "unmapped_type": "boolean"
+      }
+    }
+  ],
+  "fields": [
+    {
+      "field": "*",
+      "include_unmapped": "true"
+    },
+    {
+      "field": "@timestamp",
+      "format": "strict_date_optional_time"
+    }
+  ],
+  "size": 500,
+  "version": true,
+  "script_fields": {},
+  "stored_fields": [
+    "*"
+  ],
+  "runtime_mappings": {},
+  "_source": false,
+  "query": {
+    "bool": {
+      "must": [],
+      "filter": [
+        {
+          "bool": {
+            "filter": [
+              {
+                "bool": {
+                  "should": [
+                    {
+                      "term": {
+                        "MessageId": {
+                          "value": "CrayTelemetry.Energy"
+                        }
+                      }
+                    }
+                  ],
+                  "minimum_should_match": 1
+                }
+              },
+              {
+                "bool": {
+                  "should": [
+                    {
+                      "term": {
+                        "Sensor.ParentalContext": {
+                          "value": "Chassis"
+                        }
+                      }
+                    }
+                  ],
+                  "minimum_should_match": 1
+                }
+              },
+              {
+                "bool": {
+                  "should": [
+                    {
+                      "term": {
+                        "Sensor.PhysicalContext": {
+                          "value": "VoltageRegulator"
+                        }
+                      }
+                    }
+                  ],
+                  "minimum_should_match": 1
+                }
+              },
+              {
+                "bool": {
+                  "should": [
+                    {
+                      "term": {
+                        "Sensor.PhysicalSubContext": {
+                          "value": "Input"
+                        }
+                      }
+                    }
+                  ],
+                  "minimum_should_match": 1
+                }
+              },
+              {
+                "bool": {
+                  "should": [
+                    {
+                      "match": {
+                        "Sensor.Index": "0"
+                      }
+                    }
+                  ],
+                  "minimum_should_match": 1
+                }
+              },
+              {
+                "bool": {
+                  "should": [
+                    {
+                      "term": {
+                        "Sensor.Location": {
+                          "value": "x1103c1s1b0n0"
+                        }
+                      }
+                    }
+                  ],
+                  "minimum_should_match": 1
+                }
+              }
+            ]
+          }
+        },
+        {
+          "range": {
+            "@timestamp": {
+              "format": "strict_date_optional_time",
+              "gte": "2024-02-16T15:33:29.751Z",
+              "lte": "2024-04-07T00:00:00.000Z"
+            }
+          }
+        }
+      ],
+      "should": [],
+      "must_not": []
+    }
+  }
+}
