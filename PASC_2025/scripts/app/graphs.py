@@ -76,51 +76,36 @@ account_mapping_santis = {account: f"project_{i}" for i, account in enumerate(un
 df_santis2['account_'] = df_santis2['account'].map(account_mapping_santis)
 
 
-
-# def pie_charts(df,cluster,quantity):
-#     if quantity=='node_hours':
-#         df[quantity]=df['elapsed']*df['total_nodes']/3600
-#         df_pie=df[['account_','node_hours']]
-#     else:
-#         df_pie=df[['account_','total_energy']]
-#     pie=df_pie.groupby(['account_']).sum().reset_index()
-
-
-#     top_10 = pie.nlargest(10,quantity).reset_index() # Replace 'total_energy' with the column you want to sort by
-
-#     others = pie.loc[:,['account_',quantity]].drop(top_10.index)
-#     top_10.loc[len(top_10),quantity]=others[quantity].sum()
-#     top_10.loc[len(top_10)-1,'account_']='others'
-#     colors=plt.cm.tab20.colors[:11]
-
-#     top_10[quantity].plot(kind='pie', figsize=(10, 10),autopct=lambda pct: autopct_format(pct, top_10[quantity]),labels=top_10['account_'],colors=colors,fontsize=16,pctdistance=1.2,labeldistance=0.6,textprops={'fontsize': 8},legend=True)
-#     plt.ylabel(ylabel='',fontsize=14)
-#     plt.title(f"Top 10 {quantity} {cluster} projects",fontsize=16)
-#     plt.savefig(f"Top10_{quantity}_{cluster}.png",bbox_inches='tight',dpi=200)
-#     plt.show()
-
 def pie_charts(df, cluster, quantity):
     if quantity == 'node_hours':
         df[quantity] = df['elapsed'] * df['total_nodes'] / 3600
         df_pie = df[['account_', 'node_hours']]
+        df_pie_real = df[['account', 'node_hours']]
+
+        quantity_graph='node-hours'
         unit='nh'
     else:
         df_pie = df[['account_', 'total_energy']]
-        unit='J'
+        df_pie_real = df[['account', 'total_energy']]
+        unit='GJ'
+        quantity_graph='energy'
     
     pie = df_pie.groupby(['account_']).sum().reset_index()
-    top_10 = pie.nlargest(10, quantity).reset_index()
+    pie_real=df_pie_real.groupby(['account']).sum().reset_index()
+    top_10_real=pie_real.nlargest(5, quantity).reset_index()
+    top_10_real.to_csv(f"top10_real_{cluster}{quantity}.csv")
+    top_10 = pie.nlargest(5, quantity).reset_index()
     others = pie.loc[:, ['account_', quantity]].drop(top_10.index)
     
     top_10.loc[len(top_10), quantity] = others[quantity].sum()
     top_10.loc[len(top_10) - 1, 'account_'] = 'others'
-    colors = plt.cm.tab20.colors[:11]
+    colors = plt.cm.tab20.colors[:6]
     
-    fig, ax = plt.subplots(figsize=(10, 10))
+    fig, ax = plt.subplots(figsize=(5, 5))
     wedges, texts, autotexts = ax.pie(
         top_10[quantity],
         autopct=lambda pct: f'{pct:.1f}%',
-        labels=top_10['account_'],
+        # labels=top_10['account_'],
         colors=colors,
         # fontsize=16,
         pctdistance=0.6,
@@ -129,12 +114,15 @@ def pie_charts(df, cluster, quantity):
     )
     
     # Create legend with absolute values
-    legend_labels = [f"{acc}: {val:.0f} {unit}" for acc, val in zip(top_10['account_'], top_10[quantity])]
-    ax.legend(wedges, legend_labels, title="Accounts", loc="center left", bbox_to_anchor=(1, 0, 0.5, 1))
+    if quantity=='node_hours':
+        legend_labels = [f"{acc}: {val:.0f} {unit}" for acc, val in zip(top_10['account_'], top_10[quantity])]
+    else:
+        legend_labels = [f"{acc}: {val:.2f} {unit}" for acc, val in zip(top_10['account_'], round(top_10[quantity]/(10.0**9),2))]
+    ax.legend(wedges, legend_labels, fontsize=10,title="Projects", bbox_to_anchor=(1, 0.25, 0.5, 0.5))
     
-    plt.ylabel(ylabel='', fontsize=14)
-    plt.title(f"Top 10 {quantity} {cluster} projects", fontsize=16)
-    plt.savefig(f"results/Top10_{quantity}_{cluster}.png", bbox_inches='tight', dpi=200)
+    plt.ylabel(ylabel='', fontsize=18)
+    plt.title(f"Top 5 {quantity_graph} {cluster} projects", fontsize=16)
+    plt.savefig(f"results/Top5_{quantity_graph}_{cluster}.png", bbox_inches='tight', dpi=200)
     plt.show()
 
 pie_charts(df_clariden2,'Alps-Clariden','total_energy')
