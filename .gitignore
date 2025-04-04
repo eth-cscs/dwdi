@@ -1,0 +1,5 @@
+PASC_2025/script/data/*
+.csv
+.png
+PASC_2025/script/results/*
+*/venv
