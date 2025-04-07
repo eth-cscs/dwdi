@@ -4,47 +4,89 @@ from matplotlib import pyplot as plt
 
 
 def pie_charts_domain(df,cluster,quantity):
-    if quantity == 'node_hours':
-        df[quantity] = df['elapsed'] * df['total_nodes'] / 3600
-        df_pie = df[['domain_subdomain', 'node_hours']]
-        quantity_graph='node-hours'
-        unit='nh'
+    if cluster!='Alps-Clariden':
+        if quantity == 'node_hours':
+            df[quantity] = df['elapsed'] * df['total_nodes'] / 3600
+            df_pie = df[['domain_subdomain', 'node_hours']]
+            quantity_graph='node-hours'
+            unit='nh'
+        else:
+            df_pie = df[['domain_subdomain', 'total_energy']]
+            unit='GJ'
+            quantity_graph='energy'
+  
+        pie = df_pie.groupby(['domain_subdomain']).sum().reset_index()
+        top_10 = pie.nlargest(5, quantity).reset_index()
+        others = pie.loc[:, ['domain_subdomain', quantity]].drop(top_10.index)
+        
+        top_10.loc[len(top_10), quantity] = others[quantity].sum()
+        top_10.loc[len(top_10) - 1, 'domain_subdomain'] = 'others'
+        colors = plt.cm.tab20.colors[:6]
+        
+        fig, ax = plt.subplots(figsize=(5, 5))
+        wedges, texts, autotexts = ax.pie(
+            top_10[quantity],
+            autopct=lambda pct: f'{pct:.1f}%',
+            # labels=top_10['account_'],
+            colors=colors,
+            # fontsize=16,
+            pctdistance=0.6,
+            labeldistance=1.2,
+            textprops={'fontsize': 8}
+        )
+        
+        # Create legend with absolute values
+        if quantity=='node_hours':
+            legend_labels = [f"{acc}: {val:.0f} {unit}" for acc, val in zip(top_10['domain_subdomain'], top_10[quantity])]
+        else:
+            legend_labels = [f"{acc}: {val:.2f} {unit}" for acc, val in zip(top_10['domain_subdomain'], round(top_10[quantity]/(10.0**9),2))]
+        ax.legend(wedges, legend_labels, fontsize=10,title="Application field", bbox_to_anchor=(1, 0.25, 0.5, 0.5))
+        
+        plt.ylabel(ylabel='', fontsize=18)
+        plt.title(f"Top 5 {quantity_graph} {cluster} application field", fontsize=16)
+        plt.savefig(f"results/Top5_{quantity_graph}_{cluster}_domain.png", bbox_inches='tight', dpi=200)
+        plt.show()
     else:
-        df_pie = df[['domain_subdomain', 'total_energy']]
-        unit='GJ'
-        quantity_graph='energy'
-    
-    pie = df_pie.groupby(['domain_subdomain']).sum().reset_index()
-    top_10 = pie.nlargest(5, quantity).reset_index()
-    others = pie.loc[:, ['domain_subdomain', quantity]].drop(top_10.index)
-    
-    top_10.loc[len(top_10), quantity] = others[quantity].sum()
-    top_10.loc[len(top_10) - 1, 'domain_subdomain'] = 'others'
-    colors = plt.cm.tab20.colors[:6]
-    
-    fig, ax = plt.subplots(figsize=(5, 5))
-    wedges, texts, autotexts = ax.pie(
-        top_10[quantity],
-        autopct=lambda pct: f'{pct:.1f}%',
-        # labels=top_10['account_'],
-        colors=colors,
-        # fontsize=16,
-        pctdistance=0.6,
-        labeldistance=1.2,
-        textprops={'fontsize': 8}
-    )
-    
-    # Create legend with absolute values
-    if quantity=='node_hours':
-        legend_labels = [f"{acc}: {val:.0f} {unit}" for acc, val in zip(top_10['domain_subdomain'], top_10[quantity])]
-    else:
-        legend_labels = [f"{acc}: {val:.2f} {unit}" for acc, val in zip(top_10['domain_subdomain'], round(top_10[quantity]/(10.0**9),2))]
-    ax.legend(wedges, legend_labels, fontsize=10,title="Projects", bbox_to_anchor=(1, 0.25, 0.5, 0.5))
-    
-    plt.ylabel(ylabel='', fontsize=18)
-    plt.title(f"Top 5 {quantity_graph} {cluster} projects", fontsize=16)
-    plt.savefig(f"results/Top5_{quantity_graph}_{cluster}_domain.png", bbox_inches='tight', dpi=200)
-    plt.show()
+        if quantity == 'node_hours':
+            df[quantity] = df['elapsed'] * df['total_nodes'] / 3600
+            df_pie = df[['description', 'node_hours']]
+            quantity_graph='node-hours'
+            unit='nh'
+        else:
+            df_pie = df[['description', 'total_energy']]
+            unit='GJ'
+            quantity_graph='energy'
+        pie = df_pie.groupby(['description']).sum().reset_index()
+        top_10 = pie.nlargest(5, quantity).reset_index()
+        others = pie.loc[:, ['description', quantity]].drop(top_10.index)
+        
+        top_10.loc[len(top_10), quantity] = others[quantity].sum()
+        top_10.loc[len(top_10) - 1, 'description'] = 'others'
+        colors = plt.cm.tab20.colors[:6]
+        
+        fig, ax = plt.subplots(figsize=(5, 5))
+        wedges, texts, autotexts = ax.pie(
+            top_10[quantity],
+            autopct=lambda pct: f'{pct:.1f}%',
+            # labels=top_10['account_'],
+            colors=colors,
+            # fontsize=16,
+            pctdistance=0.6,
+            labeldistance=1.2,
+            textprops={'fontsize': 8}
+        )
+        
+        # Create legend with absolute values
+        if quantity=='node_hours':
+            legend_labels = [f"{acc}: {val:.0f} {unit}" for acc, val in zip(top_10['description'], top_10[quantity])]
+        else:
+            legend_labels = [f"{acc}: {val:.2f} {unit}" for acc, val in zip(top_10['description'], round(top_10[quantity]/(10.0**9),2))]
+        ax.legend(wedges, legend_labels, fontsize=10,title="Application field", bbox_to_anchor=(1, 0.25, 0.5, 0.5))
+        
+        plt.ylabel(ylabel='', fontsize=18)
+        plt.title(f"Top 5 {quantity_graph} {cluster} application fields", fontsize=16)
+        plt.savefig(f"results/Top5_{quantity_graph}_{cluster}_description.png", bbox_inches='tight', dpi=200)
+        plt.show()
 
 
 dfc=pd.read_csv('dfc.csv').drop(columns='Unnamed: 0').drop_duplicates()
@@ -60,12 +102,22 @@ df_clariden=pd.read_csv('data/raw_data_clariden_jan_feb_mar.csv')
 df_daint=pd.read_csv('data/raw_data_alps_daint_jan_feb_mar.csv')
 df_santis=pd.read_csv('data/raw_data_alps_santis_jan_feb_mar.csv')
 
+df_clariden['node_hours']=df_clariden['elapsed']*df_clariden['total_nodes']/3600.0
+df_daint['node_hours']=df_daint['elapsed']*df_daint['total_nodes']/3600.0
+df_santis['node_hours']=df_santis['elapsed']*df_santis['total_nodes']/3600.0
+
 df_clariden['end']=pd.to_datetime(df_clariden['end'],format="%Y-%m-%d %H:%M:%S")
 df_daint['end']=pd.to_datetime(df_daint['end'],format="%Y-%m-%d %H:%M:%S")
 df_santis['end']=pd.to_datetime(df_santis['end'],format="%Y-%m-%d %H:%M:%S")
 df_clariden=df_clariden[(df_clariden['end']>=datetime(2025,2,1))&(df_clariden['end']<datetime(2025,3,1))]
 df_daint=df_daint[(df_daint['end']>=datetime(2025,2,1))&(df_daint['end']<datetime(2025,3,1))]
 df_santis=df_santis[(df_santis['end']>=datetime(2025,2,1))&(df_santis['end']<datetime(2025,3,1))]
+
+##accounting db node-hours check problem: we filter out many jobs and statistics about node-hours are faked.
+print(df_clariden['node_hours'].sum())
+print(df_daint['node_hours'].sum())
+print(df_santis['node_hours'].sum())
+
 
 ##DATA FILTER
 df_clariden1=df_clariden[df_clariden['global_accuracy_percentage']>90]
