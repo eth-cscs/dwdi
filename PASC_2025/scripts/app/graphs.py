@@ -4,6 +4,8 @@ import matplotlib.ticker as ticker
 from datetime import datetime
 import seaborn as sns
 import numpy as np
+import os
+from sqlalchemy import create_engine
 
 def autopct_format(pct, all_values):
     absolute = int(round(pct/100. * sum(all_values)))  # Convert percentage to absolute value
@@ -20,29 +22,6 @@ df_santis['end']=pd.to_datetime(df_santis['end'],format="%Y-%m-%d %H:%M:%S")
 df_clariden=df_clariden[(df_clariden['end']>=datetime(2025,2,1))&(df_clariden['end']<datetime(2025,3,1))]
 df_daint=df_daint[(df_daint['end']>=datetime(2025,2,1))&(df_daint['end']<datetime(2025,3,1))]
 df_santis=df_santis[(df_santis['end']>=datetime(2025,2,1))&(df_santis['end']<datetime(2025,3,1))]
-
-# check negative energy data
-# outliers_clariden_raw=df_clariden[df_clariden['total_energy']<=0]
-# outliers_clariden_raw.to_csv('negative_energy_clariden_raw.csv')
-# outliers_daint_raw=df_daint[df_daint['total_energy']<=0]
-# outliers_daint_raw.to_csv('negative_energy_daint_raw.csv')
-# outliers_santis_raw=df_santis[df_santis['total_energy']<=0]
-# outliers_santis_raw.to_csv('negative_energy_santis_raw.csv')
-
-# plt.figure(figsize=(30, 10))
-# plt.plot(df_clariden['end'],df_clariden['total_energy'],color='blue',linewidth=1.5,marker='.')
-# plt.plot(df_daint['end'],df_daint['total_energy'],color='green',linewidth=1.5,marker='.')
-# plt.plot(df_santis['end'],df_santis['total_energy'],color='orange',linewidth=1.5,marker='.')
-# plt.yscale('log')
-# plt.ylim(bottom=1)
-# plt.xlabel("End", fontsize=20)  # Adjust x-axis label font size
-# plt.ylabel("Total Energy", fontsize=20)  # Adjust y-axis label font size
-# plt.xticks(fontsize=18)  # Adjust x-axis tick labels font size
-# plt.yticks(fontsize=18)
-# plt.legend(['clariden','alps-daint','alps-santis'],fontsize=16)
-# plt.savefig('raw.png',bbox_inches='tight',dpi=200)
-# plt.show()
-
 
 ##DATA FILTER
 df_clariden1=df_clariden[df_clariden['global_accuracy_percentage']>90]
@@ -78,7 +57,7 @@ df_santis2['account_'] = df_santis2['account'].map(account_mapping_santis)
 
 def pie_charts(df, cluster, quantity):
     if quantity == 'node_hours':
-        df[quantity] = df['elapsed'] * df['total_nodes'] / 3600
+        df[quantity] = df['elapsed'] * df['total_nodes'] / 3600.0
         df_pie = df[['account_', 'node_hours']]
         df_pie_real = df[['account', 'node_hours']]
 
@@ -131,6 +110,9 @@ pie_charts(df_daint2,'Alps-Daint','total_energy')
 pie_charts(df_daint2,'Alps-Daint','node_hours')
 pie_charts(df_santis2,'Alps-Santis','total_energy')
 pie_charts(df_santis2,'Alps-Santis','node_hours')
+
+print('node_hours sum')
+print(df_clariden2['node_hours'].sum())
 
 df_all=pd.concat([df_clariden2,df_daint2,df_santis2])
 df_all.to_csv('df_all.csv')
@@ -210,3 +192,63 @@ heatmap_energy_size(df_daint2,'Alps-Daint',750000000)
 heatmap_energy_size(df_santis2,'Alps-Santis',100000000)
 ### heatmap job size vs elapsed time in hours with color average energy per job
 
+### accountingdb data enrichment - domain and subdomain
+
+# host=os.getenv('ACCOUNTING_DB_HOST')
+# user=os.getenv('ACCOUNTING_DB_USER')
+# password=os.getenv('ACCOUNTING_DB_PASSWORD')
+# database=os.getenv('ACCOUNTING_DB_DATABASE')
+
+# #credentials are on bitwarden
+# # Database connection parameters
+# DB_CONFIG = {
+#     "host": f"{host}",
+#     "user": f"{user}",
+#     "password": f"{password}",
+#     "database": f"{database}"
+# }
+
+# # Create SQLAlchemy engine
+# engine = create_engine(f"mysql+pymysql://{DB_CONFIG['user']}:{DB_CONFIG['password']}@{DB_CONFIG['host']}/{DB_CONFIG['database']}")
+
+
+
+# def fetch_data(account_list1,account_list2,account_list3):
+#     """Connects to MySQL and retrieves data."""
+#     # query1 = "SELECT project_group_id,description,subdomain_id FROM audit_quartal_project_group where project_group_id IN (%s);"  # Modify as needed
+#     # query2 = "SELECT project_group_id,description,subdomain_id FROM audit_quartal_project_group where project_group_id IN (%s);"  # Modify as needed
+#     # query3 = "SELECT project_group_id,description,subdomain_id FROM audit_quartal_project_group where project_group_id IN (%s);"  # Modify as needed
+#     # query_sub="SELECT * FROM subdomain"
+#     # df1 = pd.read_sql(query1, engine,params=tuple(account_list1))
+#     # df2 = pd.read_sql(query2, engine,params=tuple(account_list2))
+#     # df3 = pd.read_sql(query3, engine,params=tuple(account_list3))
+#     # df_sub=pd.read_sql(query_sub, engine)
+#     # return df1,df2,df3,df_sub
+#     query = "SELECT project_group_id, description, subdomain_id FROM audit_quartal_project_group WHERE project_group_id IN ({})"
+#     query_sub = "SELECT * FROM subdomain"
+
+#     # Helper function to execute query safely
+#     def execute_query(account_list):
+#         placeholders = ', '.join(['%s'] * len(account_list))  # Creates (%s, %s, %s, ...)
+#         formatted_query = query.format(placeholders)
+#         return pd.read_sql(formatted_query, engine, params=list(account_list))  # Pass as list
+
+#     # Execute queries
+#     df1 = execute_query(account_list1)
+#     df2 = execute_query(account_list2)
+#     df3 = execute_query(account_list3)
+#     df_sub = pd.read_sql(query_sub, engine)
+#     return df1, df2, df3, df_sub
+
+# print(unique_accounts_clariden)
+# unique_accounts_clariden=pd.Series(unique_accounts_clariden).str.replace(r'^(a-|w_)', '', regex=True).values
+# account_clariden,account_daint,account_santis,subdomains=fetch_data(unique_accounts_clariden,unique_accounts_daint,unique_accounts_santis)
+# dfc=pd.merge(left=account_clariden,right=subdomains,on='subdomain_id')
+# dfd=pd.merge(left=account_daint,right=subdomains,on='subdomain_id')
+# dfs=pd.merge(left=account_santis,right=subdomains,on='subdomain_id')
+
+# dfc.to_csv('dfc.csv')
+# dfd.to_csv('dfd.csv')
+# dfs.to_csv('dfs.csv')
+
+# Fetch data
