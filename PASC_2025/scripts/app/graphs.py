@@ -96,7 +96,7 @@ def create_pie_chart(df: pd.DataFrame, cluster: str, quantity: str) -> None:
 
     # Save real account data
     top_10_real = pie_real.nlargest(5, quantity).reset_index()
-    top_10_real.to_csv(f"top10_real_{cluster}{quantity}.csv")
+    top_10_real.to_csv(f"csv/top10_real_{cluster}_{quantity}.csv")
 
     # Prepare data for pie chart
     top_10 = pie.nlargest(5, quantity).reset_index()
@@ -128,7 +128,7 @@ def create_pie_chart(df: pd.DataFrame, cluster: str, quantity: str) -> None:
 
     plt.ylabel(ylabel='', fontsize=18)
     plt.title(f"Top 5 {quantity_graph} {cluster} projects", fontsize=16)
-    plt.savefig(f"results/Top5_{quantity_graph}_{cluster}.png", bbox_inches='tight', dpi=200)
+    plt.savefig(f"png/Top5_{quantity_graph}_{cluster}.png", bbox_inches='tight', dpi=200)
     plt.show()
 
 
@@ -155,7 +155,7 @@ def create_histogram(df: pd.DataFrame, cluster: str, postfix: str = '') -> None:
     ax.ticklabel_format(style='sci', axis='x', scilimits=(0, 0))
     ax.xaxis.get_offset_text().set_fontsize(24)
 
-    plt.savefig(f"results/histogram_{cluster}{postfix}.png", bbox_inches='tight', dpi=200)
+    plt.savefig(f"png/histogram_{cluster}{postfix}.png", bbox_inches='tight', dpi=200)
     plt.show()
 
 
@@ -216,7 +216,7 @@ def create_heatmap(df: pd.DataFrame, cluster: str, threshold: int) -> None:
     plt.xticks(rotation=90, fontsize=18)
     plt.yticks(fontsize=18)
 
-    plt.savefig(f"results/heatmap_sizeVSenergy_{cluster}.png", bbox_inches='tight', dpi=200)
+    plt.savefig(f"png/heatmap_sizeVSenergy_{cluster}.png", bbox_inches='tight', dpi=200)
     plt.show()
 
 
@@ -249,8 +249,23 @@ def main():
     """Main function to run the analysis."""
     # Set up argument parser
     parser = argparse.ArgumentParser(description='Generate cluster analysis visualizations')
-    parser.add_argument('--cluster', type=str, help='Specific cluster to analyze (e.g., Alps-Clariden, Alps-Daint, Alps-Santis)')
+    parser.add_argument('--cluster', type=str,
+                       help='Specific cluster to analyze (e.g., Alps-Clariden, Alps-Daint, Alps-Santis)')
+    parser.add_argument('--pie', action='store_true',
+                       help='Generate only pie charts')
+    parser.add_argument('--histogram', action='store_true',
+                       help='Generate only histograms')
+    parser.add_argument('--heatmap', action='store_true',
+                       help='Generate only heatmaps')
+    parser.add_argument('--plots', action='store_true',
+                       help='Generate all plots (pie charts, histograms, and heatmaps)')
+    parser.add_argument('--csv', action='store_true',
+                       help='Read data from CSV files instead of processing raw data')
     args = parser.parse_args()
+
+    # If no plot type is specified, default to all plots
+    if not any([args.pie, args.histogram, args.heatmap, args.plots]):
+        args.plots = True
 
     # Define time window
     start_date = datetime(2025, 2, 1)
@@ -270,37 +285,59 @@ def main():
             print(f"Error: Cluster '{args.cluster}' not found. Available clusters: {', '.join(clusters.keys())}")
             return
         file_path = clusters[args.cluster]
-        cluster_dfs[args.cluster] = process_cluster_data(file_path, args.cluster, start_date, end_date)
+        if args.csv:
+            try:
+                cluster_dfs[args.cluster] = pd.read_csv(f'csv/df_{args.cluster}.csv')
+            except FileNotFoundError:
+                print(f"Error: CSV file for cluster '{args.cluster}' not found. Run without --csv flag first.")
+                return
+        else:
+            cluster_dfs[args.cluster] = process_cluster_data(file_path, args.cluster, start_date, end_date)
+            # Save processed data to CSV
+            cluster_dfs[args.cluster].to_csv(f'csv/df_{args.cluster}.csv')
     else:
         for cluster_name, file_path in clusters.items():
-            cluster_dfs[cluster_name] = process_cluster_data(file_path, cluster_name, start_date, end_date)
+            if args.csv:
+                try:
+                    cluster_dfs[cluster_name] = pd.read_csv(f'csv/df_{cluster_name}.csv')
+                except FileNotFoundError:
+                    print(f"Error: CSV file for cluster '{cluster_name}' not found. Run without --csv flag first.")
+                    return
+            else:
+                cluster_dfs[cluster_name] = process_cluster_data(file_path, cluster_name, start_date, end_date)
+                # Save processed data to CSV
+                cluster_dfs[cluster_name].to_csv(f'csv/df_{cluster_name}.csv')
 
     # Create visualizations for each cluster
     for cluster_name, df in cluster_dfs.items():
-        # Create pie charts
-        create_pie_chart(df, cluster=cluster_name, quantity='total_energy')
-        create_pie_chart(df, cluster=cluster_name, quantity='node_hours')
+        # Create pie charts if requested
+        if args.pie or args.plots:
+            create_pie_chart(df, cluster=cluster_name, quantity='total_energy')
+            create_pie_chart(df, cluster=cluster_name, quantity='node_hours')
 
-        # Create histogram
-        create_histogram(df, cluster_name)
+        # Create histogram if requested
+        if args.histogram or args.plots:
+            create_histogram(df, cluster_name)
 
-        # Create heatmap with appropriate threshold
-        thresholds = {
-            'Alps-Clariden': 1800000000,
-            'Alps-Daint': 750000000,
-            'Alps-Santis': 100000000
-        }
-        create_heatmap(df, cluster_name, thresholds[cluster_name])
+        # Create heatmap if requested
+        if args.heatmap or args.plots:
+            thresholds = {
+                'Alps-Clariden': 1800000000,
+                'Alps-Daint': 750000000,
+                'Alps-Santis': 100000000
+            }
+            create_heatmap(df, cluster_name, thresholds[cluster_name])
 
     # Only combine data if no specific cluster was requested
     if not args.cluster:
         # Combine all data
         df_all = pd.concat(list(cluster_dfs.values()))
-        df_all.to_csv('df_all.csv')
+        df_all.to_csv('csv/df_all.csv')
 
-        # Create visualizations for combined data
-        create_pie_chart(df_all, cluster='big 3', quantity='total_energy')
-        create_pie_chart(df_all, cluster='big 3', quantity='node_hours')
+        # Create visualizations for combined data if pie charts are requested
+        if args.pie or args.plots:
+            create_pie_chart(df_all, cluster='big 3', quantity='total_energy')
+            create_pie_chart(df_all, cluster='big 3', quantity='node_hours')
 
         # Print node hours sum for Clariden
         print('node_hours sum')
@@ -309,13 +346,18 @@ def main():
 
 if __name__ == "__main__":
     """
-    usage: graphs.py [-h] [--cluster CLUSTER]
-    required: mkdir -p results
+    usage: graphs.py [-h] [--cluster CLUSTER] [--pie] [--histogram] [--heatmap] [--plots] [--csv]
+    required: mkdir -p csv png
 
     Generate cluster analysis visualizations
 
     options:
       -h, --help         show this help message and exit
       --cluster CLUSTER  Specific cluster to analyze (e.g., Alps-Clariden, Alps-Daint, Alps-Santis)
+      --pie             Generate only pie charts
+      --histogram       Generate only histograms
+      --heatmap         Generate only heatmaps
+      --plots           Generate all plots (pie charts, histograms, and heatmaps)
+      --csv             Read data from CSV files instead of processing raw data
     """
     main()
