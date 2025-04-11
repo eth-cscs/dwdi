@@ -2,17 +2,19 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
+from matplotlib.ticker import MaxNLocator
 import seaborn as sns
 from datetime import datetime
 import os
 from sqlalchemy import create_engine
 from typing import Dict, List, Tuple, Optional
 import argparse
+from matplotlib.colors import LinearSegmentedColormap
 
 
 def load_and_filter_data(file_path: str, start_date: datetime, end_date: datetime) -> pd.DataFrame:
     """
-    Load data from CSV and apply initial filtering.
+    Load raw data from CSV and apply initial filtering.
 
     Args:
         file_path: Path to the CSV file
@@ -39,12 +41,10 @@ def apply_data_filters(df: pd.DataFrame) -> pd.DataFrame:
     """
     # Filter by accuracy
     df_filtered = df[df['global_accuracy_percentage'] > 90].copy()
-
     # Calculate and filter by power
     df_filtered['power'] = df_filtered['total_energy'] / (df_filtered['elapsed'] * df_filtered['total_nodes'])
     df_filtered = df_filtered[df_filtered['power'] <= 2700]
-
-    # Handle NaN values
+    # skip NaN values
     df_filtered['total_energy'] = df_filtered['total_energy'].where(df_filtered['total_energy'].notna(), None)
 
     return df_filtered
@@ -172,7 +172,7 @@ def format_with_apostrophes(n: int) -> str:
     return format(n, ',').replace(',', "'")
 
 
-def create_heatmap(df: pd.DataFrame, cluster: str, threshold: int, cmap: str = 'viridis') -> None:
+def create_heatmap(df: pd.DataFrame, cluster: str, threshold: int, cmap: str = 'RdYlBu_r') -> None:
     """
     Create and save a heatmap of job size vs energy.
 
@@ -193,7 +193,7 @@ def create_heatmap(df: pd.DataFrame, cluster: str, threshold: int, cmap: str = '
     bins = list(range(0, energy_max, delta))
 
     # Create bin labels
-    labels = [f"[{format_with_apostrophes(bins[i]//1e6)}-{format_with_apostrophes(bins[i+1]//1e6)}]"
+    labels = [f"[{format_with_apostrophes(int(bins[i]//1e6))}-{format_with_apostrophes(int(bins[i+1]//1e6))}]"
               for i in range(len(bins) - 1)]
 
     # Bin the energy data
@@ -207,9 +207,13 @@ def create_heatmap(df: pd.DataFrame, cluster: str, threshold: int, cmap: str = '
     # Pivot for heatmap
     heatmap_matrix = heatmap_data.pivot(index='total_nodes', columns='range_energy', values='node_hours')
 
+    # Define a custom colormap starting from a lighter blue
+    custom_cmap = LinearSegmentedColormap.from_list(
+        'custom_blue', ['#e6ffff', '#a83232'], N=256)
+
     # Plot heatmap
     plt.figure(figsize=(20, 10))
-    sns.heatmap(heatmap_matrix, cmap=cmap, linewidths=0.5, annot=True, fmt=".0f")
+    sns.heatmap(heatmap_matrix, cmap=custom_cmap, linewidths=0.5, annot=True, fmt=".0f")
 
     plt.title(f"{cluster}: Node Hours Distribution by Job Size and Energy Consumption", fontsize=20)
     plt.ylabel("Job Size [#nodes]", fontsize=18)
@@ -222,42 +226,59 @@ def create_heatmap(df: pd.DataFrame, cluster: str, threshold: int, cmap: str = '
     # plt.show()
 
 
+def process_cluster_data(file_path: str, cluster_name: str, start_date: datetime, end_date: datetime) -> pd.DataFrame:
+    """
+    Process data for a single cluster.
+
+    Args:
+        file_path: Path to the raw data CSV file
+        cluster_name: Name of the cluster
+        start_date: Start date for filtering
+        end_date: End date for filtering
+
+    Returns:
+        Processed DataFrame
+    """
+    df = load_and_filter_data(file_path, start_date, end_date)
+    df_filtered = apply_data_filters(df)
+    df_anonymized = anonymize_accounts(df_filtered)
+
+    return df_anonymized
+
+
 def main():
     """Main function to run the analysis."""
-    # Set up argument parser
     parser = argparse.ArgumentParser(description='Generate cluster analysis visualizations')
     parser.add_argument('--cluster', type=str,
-                       help='Specific cluster to analyze (e.g., Alps-Clariden, Alps-Daint, Alps-Santis)')
+                        help='Specific cluster to analyze (e.g., Alps-Clariden, Alps-Daint, Alps-Santis)')
     parser.add_argument('--pie', action='store_true',
-                       help='Generate only pie charts')
+                        help='Generate only pie charts')
     parser.add_argument('--histogram', action='store_true',
-                       help='Generate only histograms')
+                        help='Generate only histograms')
     parser.add_argument('--heatmap', action='store_true',
-                       help='Generate only heatmaps')
-    parser.add_argument('--plots', action='store_true',
-                       help='Generate all plots (pie charts, histograms, and heatmaps)')
+                        help='Generate only heatmaps')
+    parser.add_argument('--all', action='store_true',
+                        help='Generate all plots (pie charts, histograms, and heatmaps)')
     parser.add_argument('--csv', action='store_true',
-                       help='Read data from CSV files instead of processing raw data')
-    parser.add_argument('--cmap', type=str, default='viridis',
-                       help='Colormap for heatmap (e.g., viridis, magma, plasma, YlOrRd, PuBu, RdYlBu_r)')
+                        help='Read data from CSV files instead of processing raw data')
+    parser.add_argument('--cmap', type=str, default='RdYlBu_r',
+                        help='Colormap for heatmap (e.g., viridis, magma, plasma, YlOrRd, PuBu, RdYlBu_r)')
     args = parser.parse_args()
+
+    # If no plot type is specified, default to plot all plots
+    if not any([args.pie, args.histogram, args.heatmap, args.all]):
+        args.all = True
 
     # Validate colormap
     try:
         plt.get_cmap(args.cmap)
     except ValueError:
-        print(f"Error: Invalid colormap '{args.cmap}'. Using default 'viridis'.")
-        args.cmap = 'viridis'
+        print(f"Error: Invalid colormap '{args.cmap}'. Using default 'RdYlBu_r'.")
+        args.cmap = 'RdYlBu_r'
 
-    # If no plot type is specified, default to all plots
-    if not any([args.pie, args.histogram, args.heatmap, args.plots]):
-        args.plots = True
-
-    # Define time window
+    # Define time window and input csv files
     start_date = datetime(2025, 2, 1)
     end_date = datetime(2025, 3, 1)
-
-    # Process data for each cluster
     clusters = {
         'Alps-Clariden': 'data/raw_data_clariden_jan_feb_mar.csv',
         'Alps-Daint': 'data/raw_data_alps_daint_jan_feb_mar.csv',
@@ -270,6 +291,7 @@ def main():
         if args.cluster not in clusters:
             print(f"Error: Cluster '{args.cluster}' not found. Available clusters: {', '.join(clusters.keys())}")
             return
+
         file_path = clusters[args.cluster]
         if args.csv:
             try:
@@ -277,10 +299,11 @@ def main():
             except FileNotFoundError:
                 print(f"Error: CSV file for cluster '{args.cluster}' not found. Run without --csv flag first.")
                 return
+
         else:
             cluster_dfs[args.cluster] = process_cluster_data(file_path, args.cluster, start_date, end_date)
-            # Save processed data to CSV
             cluster_dfs[args.cluster].to_csv(f'csv/df_{args.cluster}.csv')
+
     else:
         for cluster_name, file_path in clusters.items():
             if args.csv:
@@ -291,22 +314,21 @@ def main():
                     return
             else:
                 cluster_dfs[cluster_name] = process_cluster_data(file_path, cluster_name, start_date, end_date)
-                # Save processed data to CSV
                 cluster_dfs[cluster_name].to_csv(f'csv/df_{cluster_name}.csv')
 
     # Create visualizations for each cluster
     for cluster_name, df in cluster_dfs.items():
         # Create pie charts if requested
-        if args.pie or args.plots:
+        if args.pie or args.all:
             create_pie_chart(df, cluster=cluster_name, quantity='total_energy')
             create_pie_chart(df, cluster=cluster_name, quantity='node_hours')
 
         # Create histogram if requested
-        if args.histogram or args.plots:
+        if args.histogram or args.all:
             create_histogram(df, cluster_name)
 
         # Create heatmap if requested
-        if args.heatmap or args.plots:
+        if args.heatmap or args.all:
             thresholds = {
                 'Alps-Clariden': 1800000000,
                 'Alps-Daint': 750000000,
@@ -321,7 +343,7 @@ def main():
         df_all.to_csv('csv/df_all.csv')
 
         # Create visualizations for combined data if pie charts are requested
-        if args.pie or args.plots:
+        if args.pie or args.all:
             create_pie_chart(df_all, cluster='big 3', quantity='total_energy')
             create_pie_chart(df_all, cluster='big 3', quantity='node_hours')
 
@@ -332,7 +354,7 @@ def main():
 
 if __name__ == "__main__":
     """
-    usage: graphs.py [-h] [--cluster CLUSTER] [--pie] [--histogram] [--heatmap] [--plots] [--csv] [--cmap CMAP]
+    usage: graphs.py [-h] [--cluster CLUSTER] [--pie] [--histogram] [--heatmap] [--all] [--csv] [--cmap CMAP]
     required: mkdir -p csv png
 
     Generate cluster analysis visualizations
@@ -343,7 +365,7 @@ if __name__ == "__main__":
       --pie             Generate only pie charts
       --histogram       Generate only histograms
       --heatmap         Generate only heatmaps
-      --plots           Generate all plots (pie charts, histograms, and heatmaps)
+      --all             Generate all plots (pie charts, histograms, and heatmaps)
       --csv             Read data from CSV files instead of processing raw data
       --cmap CMAP       Colormap for heatmap (e.g., viridis, magma, plasma, YlOrRd, PuBu, RdYlBu_r)
     """
