@@ -1,9 +1,9 @@
 import pandas as pd
 from matplotlib import pyplot as plt
 
-df = pd.read_json('santis.json')
+df = pd.read_json('clariden.json')
 
-cluster="Alps-Santis"
+cluster="Alps-Clariden"
 
 def check_float(x):
     print(x)
@@ -16,6 +16,7 @@ def check_float(x):
     except:
         pass
 df['abs_delta']=abs(df['total_energy'].astype('float')-df['energy_raw'].apply(check_float))
+print(df)
 
 df=df.dropna().reset_index()
 
@@ -41,13 +42,13 @@ plt.show()
 
 df.to_csv(f"df_{cluster}.csv")
 
-plt.figure(figsize=(10, 10))
-plt.plot(df['total_energy'],df['energy_raw'],marker='.',linestyle='None')
-plt.xlabel('Telemetry[J]')
-plt.ylabel('SLURM [J]')
-plt.ylim(0,1e8)
-plt.xlim(0,1e8)
-plt.title(f"Telemetry vs SLURM Energy {cluster}" )
+# plt.figure(figsize=(10, 10))
+# plt.plot(df['total_energy'],df['energy_raw'],marker='.',linestyle='None')
+# plt.xlabel('Telemetry[J]')
+# plt.ylabel('SLURM [J]')
+# plt.ylim(0,1e8)
+# plt.xlim(0,1e8)
+# plt.title(f"Telemetry vs SLURM Energy {cluster}" )
 plt.show()
 
 ## santis: 0.5 % percentage to be in the lower or in the upper bucket (wrong bucket)

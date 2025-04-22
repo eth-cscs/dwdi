@@ -404,6 +404,7 @@ def barcharts_nh(df:pd.DataFrame,cluster):
     # Axis labels
     plt.title(f"Usage distribution {cluster}")
     plt.ylabel('Usage [node-hours]')
+    plt.ylim(0,120000)
     plt.xlabel('Job size [#nodes]')
     ax.set_xticklabels(grouped.index, rotation=45, ha='right')
 
@@ -456,6 +457,7 @@ def barcharts_en(df:pd.DataFrame,cluster):
     plt.title(f"Energy distribution {cluster}")
     plt.ylabel('Job count')
     plt.xlabel('Job size [#nodes]')
+    plt.ylim(1,1e5)
     ax.set_xticklabels(grouped.index, rotation=45, ha='right')
 
     # Annotate each bar with job count and node hours
