@@ -13,6 +13,13 @@ from matplotlib.colors import LinearSegmentedColormap
 import matplotlib.cm as cm
 import matplotlib.colors as mcolors
 
+def formatting(number: float)-> str:
+    """
+    formats number >= 1000 
+    """
+    formatted_number = f"{number:,.1f}".replace(",", "'")
+    return formatted_number
+
 
 def load_and_filter_data(file_path: str, start_date: datetime, end_date: datetime) -> pd.DataFrame:
     """
@@ -105,7 +112,9 @@ def create_pie_chart(df: pd.DataFrame, cluster: str, quantity: str) -> None:
     others = pie.loc[:, ['account_', quantity]].drop(top_10.index)
 
     # Add "others" category
+   
     top_10.loc[len(top_10), quantity] = others[quantity].sum()
+    
     top_10.loc[len(top_10) - 1, 'account_'] = 'others'
 
     # Create pie chart
@@ -113,7 +122,7 @@ def create_pie_chart(df: pd.DataFrame, cluster: str, quantity: str) -> None:
     fig, ax = plt.subplots(figsize=(5, 5))
     wedges, texts, autotexts = ax.pie(
         top_10[quantity],
-        autopct=lambda pct: f'{pct:.1f}%',
+        autopct=lambda pct: formatting(pct),
         colors=colors,
         pctdistance=0.6,
         labeldistance=1.2,
@@ -192,10 +201,16 @@ def create_pie_chart_domain(df: pd.DataFrame, cluster: str, quantity: str) -> No
     others = pie.loc[:, ['sum_sd', quantity]].drop(top_10.index)
 
     # Add "others" category
-    top_10.loc[len(top_10), quantity] = others[quantity].sum()
-    top_10.loc[len(top_10) - 1, 'sum_sd'] = 'others'
-    print(top_10)
-    # Create pie chart
+    if cluster!='Alps-Santis':
+        if cluster=="Alps-Daint":
+            print(top_10)
+            top_10['sum_sd']=['Physics','Plasma Physics','Astrophysics & Cosmology','Materials Science','Molecular Biophysics']
+        top_10.loc[len(top_10), quantity] = others[quantity].sum()
+        top_10.loc[len(top_10) - 1, 'sum_sd'] = 'others' 
+    else:
+        print(top_10)
+        top_10['sum_sd']=['Climate','Others','Computer Science','Geoscience']
+     # Create pie chart
     colors = plt.cm.tab20.colors[:6]
     fig, ax = plt.subplots(figsize=(5, 5))
     wedges, texts, autotexts = ax.pie(
@@ -209,11 +224,11 @@ def create_pie_chart_domain(df: pd.DataFrame, cluster: str, quantity: str) -> No
 
     # Create legend with absolute values
     if quantity == 'node_hours':
-        legend_labels = [f"{acc}: {val:.0f} {unit}" for acc, val in zip(top_10['sum_sd'], top_10[quantity])]
-        total=int(top_10[quantity].sum())
+        legend_labels = [f"{acc}: {formatting(val)} {unit}" for acc, val in zip(top_10['sum_sd'], top_10[quantity])]
+        total=formatting(int(top_10[quantity].sum()))
     else:
-        legend_labels = [f"{acc}: {val:.2f} {unit}" for acc, val in zip(top_10['sum_sd'], round(top_10[quantity] / (10.0**9), 2))]
-        total=round(top_10[quantity].sum()/(10.0**9),2)
+        legend_labels = [f"{acc}: {formatting(val)} {unit}" for acc, val in zip(top_10['sum_sd'], round(top_10[quantity] / (10.0**9), 2))]
+        total=formatting(round(top_10[quantity].sum()/(10.0**9),2))
 
     ax.legend(wedges, legend_labels, fontsize=10, title="Application Fields", bbox_to_anchor=(1, 0.25, 0.5, 0.5))
 
@@ -420,6 +435,48 @@ def barcharts_nh(df:pd.DataFrame,cluster):
     plt.savefig(f"png/bar_nhVSsize_{cluster}.png", bbox_inches='tight', dpi=200)
     plt.show()
 
+def barcharts_en_bar(df:pd.DataFrame,cluster):
+    df['bucket'] = df['total_nodes'].apply(resource_bucket)
+
+    # Group by bucket
+    grouped = df.groupby('bucket').agg(
+        #job_count=('total_nodes', 'count'),
+        total_node_hours=('total_energy', 'sum')
+    ).reindex(['1', '2 → 4', '4 → 8','8 → 16','16 → 32','32 → 64','64 → 128','128 → 256','256 → 512','512 → 1024','1024 → 2048','2048 → 4096'])
+
+
+    grouped.to_csv(f"energy_groups_{cluster}.csv")
+    # Normalize node_hours to 0-1 for colormap
+    # norm = mcolors.Normalize(vmin=grouped['total_node_hours'].min(), vmax=grouped['total_node_hours'].max())
+    # cmap = cm.Reds
+    # colors = cmap(norm(grouped['total_node_hours']))
+
+    # Plotting
+    fig,ax=plt.subplots(figsize=(10, 6))
+    bars = ax.bar(grouped.index, grouped.total_node_hours,alpha=0.8,color='red')
+    # sm = cm.ScalarMappable(cmap=cmap, norm=norm)
+    # sm.set_array([])  # only needed for older matplotlib
+    # cbar = plt.colorbar(sm, ax=ax)
+    # cbar.set_label(f"Total Node Hours {cluster}", rotation=270, labelpad=15)
+    # Axis labels
+    plt.title(f"Energy distribution {cluster}")
+    plt.ylabel('Usage [J]')
+    plt.ylim(0,6e11)
+    plt.xlabel('Job size [#nodes]')
+    ax.set_xticklabels(grouped.index, rotation=45, ha='right')
+
+    # Annotate each bar with job count and node hours
+    # for bar, node_hours, job_count in zip(bars, grouped['total_node_hours'], grouped['job_count']):
+    #     x = bar.get_x() + bar.get_width() / 2
+    #     y = bar.get_height()
+    #     plt.text(x, y + 1000, f'{job_count:,}', ha='center', va='bottom', fontsize=10, fontweight='bold')
+    #     plt.text(x, y / 2, f'{node_hours:.1f} node hrs', ha='center', va='center', color='white', fontsize=9)
+
+    plt.grid(axis='y', linestyle='--', alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(f"png/bar_JVSsize_{cluster}.png", bbox_inches='tight', dpi=200)
+    plt.show()
+
 def linear_plot(df,cluster):
     df['node_hours']=df['elapsed']*df['total_nodes']/3600.0
 
@@ -439,7 +496,7 @@ def barcharts_en(df:pd.DataFrame,cluster):
         total_energy=('total_energy', 'sum')
     ).reindex(['1', '2 → 4', '4 → 8','8 → 16','16 → 32','32 → 64','64 → 128','128 → 256','256 → 512','512 → 1024','1024 → 2048','2048 → 4096'])
 
-
+    grouped.to_csv(f"grouped_distribution_{cluster}.csv")
 
     # Normalize node_hours to 0-1 for colormap
     norm = mcolors.Normalize(vmin=grouped['total_energy'].min(), vmax=grouped['total_energy'].max())
@@ -456,6 +513,7 @@ def barcharts_en(df:pd.DataFrame,cluster):
     # Axis labels
     plt.title(f"Energy distribution {cluster}")
     plt.ylabel('Job count')
+    plt.yscale('log')
     plt.xlabel('Job size [#nodes]')
     plt.ylim(1,1e5)
     ax.set_xticklabels(grouped.index, rotation=45, ha='right')
@@ -547,27 +605,27 @@ def main():
     # Create visualizations for each cluster
     for cluster_name, df in cluster_dfs.items():
         # linear_plot(df,cluster_name)
-        barcharts_nh(df,cluster_name)
+        barcharts_en_bar(df,cluster_name)
         barcharts_en(df,cluster_name)
         # # Create pie charts if requested
-        if args.pie or args.all:
-        #     create_pie_chart(df, cluster=cluster_name, quantity='total_energy')
-        #     create_pie_chart(df, cluster=cluster_name, quantity='node_hours')
-            create_pie_chart_domain(df, cluster=cluster_name, quantity='total_energy')
-            create_pie_chart_domain(df, cluster=cluster_name, quantity='node_hours')
+        # if args.pie or args.all:
+        # #     create_pie_chart(df, cluster=cluster_name, quantity='total_energy')
+        # #     create_pie_chart(df, cluster=cluster_name, quantity='node_hours')
+        #     create_pie_chart_domain(df, cluster=cluster_name, quantity='total_energy')
+        #     create_pie_chart_domain(df, cluster=cluster_name, quantity='node_hours')
 
         # # Create histogram if requested
         # if args.histogram or args.all:
         #     create_histogram(df, cluster_name)
 
         # # Create heatmap if requested
-        if args.heatmap or args.all:
-            thresholds = {
-                'Alps-Clariden': 1800000000,
-                'Alps-Daint': 750000000,
-                'Alps-Santis': 100000000
-            }
-            create_heatmap(df, cluster_name, thresholds[cluster_name], cmap=args.cmap)
+        # if args.heatmap or args.all:
+        #     thresholds = {
+        #         'Alps-Clariden': 1800000000,
+        #         'Alps-Daint': 750000000,
+        #         'Alps-Santis': 100000000
+        #     }
+        #     create_heatmap(df, cluster_name, thresholds[cluster_name], cmap=args.cmap)
 
     # Only combine data if no specific cluster was requested
     if not args.cluster:
