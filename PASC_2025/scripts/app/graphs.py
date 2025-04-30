@@ -381,7 +381,7 @@ def resource_bucket(val):
         return '32 → 64'
     elif 64 <= val < 128:
         return '64 → 128'
-    elif 128<=val <256:
+    elif 128<=val < 256:
         return '128 → 256'
     elif 256<= val < 512:
         return '256 → 512'
@@ -460,7 +460,7 @@ def barcharts_en_bar(df:pd.DataFrame,cluster):
     # cbar.set_label(f"Total Node Hours {cluster}", rotation=270, labelpad=15)
     # Axis labels
     plt.title(f"Energy distribution {cluster}")
-    plt.ylabel('Usage [J]')
+    plt.ylabel('Total Energy [J]')
     plt.ylim(0,6e11)
     plt.xlabel('Job size [#nodes]')
     ax.set_xticklabels(grouped.index, rotation=45, ha='right')
@@ -606,7 +606,7 @@ def main():
     for cluster_name, df in cluster_dfs.items():
         # linear_plot(df,cluster_name)
         barcharts_en_bar(df,cluster_name)
-        barcharts_en(df,cluster_name)
+        # barcharts_en(df,cluster_name)
         # # Create pie charts if requested
         # if args.pie or args.all:
         # #     create_pie_chart(df, cluster=cluster_name, quantity='total_energy')
